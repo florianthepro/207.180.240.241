@@ -1,0 +1,32 @@
+# GitLab CE - nur intern erreichbar (Loopback), Port 9200
+# Zielort: C:\docker\gitlab_9200\compose.yaml (setup.bat kopiert die Datei dorthin)
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest        # Betrieb: regelmaessig "pull" + "up -d" (Security-Patches)
+    container_name: gitlab_9200
+    restart: unless-stopped
+    shm_size: "256m"
+    ports:
+      - "127.0.0.1:9200:80"               # NUR Loopback: extern nicht erreichbar, Apache 80/443 unberuehrt
+      # - "127.0.0.1:9222:22"             # optional: Git via SSH (dann unten ssh_port mit aktivieren)
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://localhost:9200'
+        nginx['listen_port'] = 80
+        letsencrypt['enable'] = false
+        # gitlab_rails['gitlab_shell_ssh_port'] = 9222
+    volumes:
+      # Named Volumes statt Bind-Mounts auf C:\  -> NTFS/9p-Ownership bricht sonst PostgreSQL im Container
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:

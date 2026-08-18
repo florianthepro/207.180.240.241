@@ -1,11 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- getitsec - git-graph smiley: commits as eyes, a branch as the smile, a branch sprouting from the head -->
+  <!-- getitsec - git branch mark: main lane with two commits, branch curving to a third -->
   <rect width="512" height="512" fill="#1E1B4B"/>
-  <path d="M252 182 C252 136 284 122 306 106" fill="none" stroke="#F472B6" stroke-width="26" stroke-linecap="round"/>
-  <circle cx="318" cy="98" r="26" fill="#F472B6"/>
-  <circle cx="178" cy="240" r="36" fill="#38BDF8"/>
-  <circle cx="334" cy="240" r="36" fill="#4ADE80"/>
-  <path d="M156 336 C186 412 326 412 356 336" fill="none" stroke="#FB923C" stroke-width="36" stroke-linecap="round"/>
-  <circle cx="156" cy="336" r="34" fill="#FB923C"/>
-  <circle cx="356" cy="336" r="34" fill="#FB923C"/>
+  <path d="M188 300 C206 232 252 180 310 166" fill="none" stroke="#FB923C" stroke-width="32" stroke-linecap="round"/>
+  <path d="M186 148 V364" fill="none" stroke="#2DD4BF" stroke-width="32" stroke-linecap="round"/>
+  <circle cx="186" cy="148" r="36" fill="#2DD4BF"/>
+  <circle cx="186" cy="364" r="36" fill="#2DD4BF"/>
+  <circle cx="326" cy="164" r="36" fill="#FB923C"/>
 </svg>

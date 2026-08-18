@@ -7,6 +7,9 @@ REM  - Quelle und Ziel auswaehlbar (Repos per Knopf laden)
 REM  - Anmeldung im Fenster: Gitea via Benutzer+Passwort (erstellt
 REM    automatisch einen API-Token) oder direkt per Token.
 REM    GitHub optional per Token (nur fuer private Repos noetig).
+REM  - Push wahlweise per HTTPS (Token) oder per SSH (eigener Key,
+REM    setzt eingerichteten Gitea-SSH-Server voraus, siehe
+REM    gitea-ssh-setup.bat).
 REM  - Zwei Modi: ZIP-Snapshot (1 frischer Commit) oder Mirror
 REM    (komplette Historie, alle Branches+Tags). Beides Force-Push.
 REM  Der PowerShell-Teil ist unten eingebettet (nach dem Marker).
@@ -61,7 +64,7 @@ function NewBtn([string]$text,[int]$x,[int]$y,[int]$w,[int]$h){
 # ---------- Formular ----------
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'GitHub -> Gitea Sync'
-$form.ClientSize = S 622 748
+$form.ClientSize = S 622 788
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 $form.StartPosition = 'CenterScreen'
@@ -88,7 +91,7 @@ $grpSrc.Controls.AddRange(@($lblGhUser,$txtGhUser,$btnGhLoad,$lblGhTok,$txtGhTok
 # --- Ziel (Gitea) ---
 $grpDst = New-Object System.Windows.Forms.GroupBox
 $grpDst.Text = 'Ziel (Gitea)'
-$grpDst.Location = P 10 176; $grpDst.Size = S 602 224
+$grpDst.Location = P 10 176; $grpDst.Size = S 602 292
 
 $lblGtUrl  = NewLabel 'Gitea URL:' 15 30 130
 $txtGtUrl  = NewText 150 27 300 'https://gitea.getitsec.com' $false
@@ -110,12 +113,23 @@ $txtDstBr   = NewText 150 155 120 'main' $false
 $chkCreate  = New-Object System.Windows.Forms.CheckBox
 $chkCreate.Text = 'Ziel-Repo automatisch anlegen, falls es fehlt (privat)'
 $chkCreate.Location = P 150 188; $chkCreate.Size = S 420 20; $chkCreate.Checked = $true
-$grpDst.Controls.AddRange(@($lblGtUrl,$txtGtUrl,$lblGtUser,$txtGtUser,$lblGtPass,$txtGtPass,$btnLogin,$lblGtTok,$txtGtTok,$lnkGtTok,$lblDstRepo,$cmbDst,$btnGtLoad,$lblDstBr,$txtDstBr,$chkCreate))
+$rbHttps = New-Object System.Windows.Forms.RadioButton
+$rbHttps.Text = 'Push per HTTPS (Token)'
+$rbHttps.Location = P 15 218; $rbHttps.Size = S 270 20; $rbHttps.Checked = $true
+$rbSsh = New-Object System.Windows.Forms.RadioButton
+$rbSsh.Text = 'Push per SSH (eigener Key)'
+$rbSsh.Location = P 305 218; $rbSsh.Size = S 280 20
+$lblSsh    = NewLabel 'SSH User/Host/Port:' 15 250 130
+$txtSshUser = NewText 150 247 60 'git' $false
+$txtSshHost = NewText 215 247 170 '207.180.240.241' $false
+$txtSshPort = NewText 390 247 55 '2222' $false
+$txtSshUser.Enabled = $false; $txtSshHost.Enabled = $false; $txtSshPort.Enabled = $false
+$grpDst.Controls.AddRange(@($lblGtUrl,$txtGtUrl,$lblGtUser,$txtGtUser,$lblGtPass,$txtGtPass,$btnLogin,$lblGtTok,$txtGtTok,$lnkGtTok,$lblDstRepo,$cmbDst,$btnGtLoad,$lblDstBr,$txtDstBr,$chkCreate,$rbHttps,$rbSsh,$lblSsh,$txtSshUser,$txtSshHost,$txtSshPort))
 
 # --- Modus ---
 $grpMode = New-Object System.Windows.Forms.GroupBox
 $grpMode.Text = 'Modus'
-$grpMode.Location = P 10 408; $grpMode.Size = S 602 74
+$grpMode.Location = P 10 476; $grpMode.Size = S 602 74
 $rbSnap = New-Object System.Windows.Forms.RadioButton
 $rbSnap.Text = 'ZIP-Snapshot: 1 frischer Commit, ersetzt den Ziel-Branch (Force)'
 $rbSnap.Location = P 15 22; $rbSnap.Size = S 570 20; $rbSnap.Checked = $true
@@ -125,12 +139,12 @@ $rbMirror.Location = P 15 46; $rbMirror.Size = S 570 20
 $grpMode.Controls.AddRange(@($rbSnap,$rbMirror))
 
 # --- Start / Log / Status ---
-$btnStart = NewBtn 'Sync starten' 10 492 602 36
+$btnStart = NewBtn 'Sync starten' 10 560 602 36
 $txtLog = New-Object System.Windows.Forms.TextBox
-$txtLog.Location = P 10 538; $txtLog.Size = S 602 178
+$txtLog.Location = P 10 606; $txtLog.Size = S 602 150
 $txtLog.Multiline = $true; $txtLog.ReadOnly = $true; $txtLog.ScrollBars = 'Vertical'
 $txtLog.Font = New-Object System.Drawing.Font('Consolas',8.5)
-$lblStatus = NewLabel 'Bereit.' 10 722 602
+$lblStatus = NewLabel 'Bereit.' 10 762 602
 
 $form.Controls.AddRange(@($grpSrc,$grpDst,$grpMode,$btnStart,$txtLog,$lblStatus))
 
@@ -207,6 +221,7 @@ function Ensure-DstRepo([string]$dst){
 $lnkGhTok.Add_LinkClicked({ Start-Process 'https://github.com/settings/tokens/new?scopes=repo&description=gh2gitea-sync' })
 $lnkGtTok.Add_LinkClicked({ Start-Process ((GiteaBase) + '/user/settings/applications') })
 $rbSnap.Add_CheckedChanged({ $txtSrcBr.Enabled = $rbSnap.Checked; $txtDstBr.Enabled = $rbSnap.Checked })
+$rbSsh.Add_CheckedChanged({ $en = $rbSsh.Checked; $txtSshUser.Enabled = $en; $txtSshHost.Enabled = $en; $txtSshPort.Enabled = $en })
 
 $btnGhLoad.Add_Click({
     try {
@@ -248,8 +263,14 @@ $btnStart.Add_Click({
     if($src -notmatch '^[^/\s]+/[^/\s]+$'){ MsgErr 'Quelle bitte als owner/name angeben, z.B. florianthepro/pages'; return }
     if($dst -notmatch '^[^/\s]+/[^/\s]+$'){ MsgErr 'Ziel bitte als owner/name angeben, z.B. florianthepro/p2'; return }
     if($rbSnap.Checked -and (-not $srcBr -or -not $dstBr)){ MsgErr 'Bitte Quell- und Ziel-Branch angeben.'; return }
-    if(-not $txtGtTok.Text.Trim()){
-        if(-not (Do-GiteaLogin)){ MsgErr 'Ohne Gitea-Token oder Login geht es nicht weiter.'; return }
+    if($rbSsh.Checked){
+        if(-not (Get-Command ssh -ErrorAction SilentlyContinue)){ MsgErr 'ssh.exe wurde nicht gefunden. Windows-Feature "OpenSSH-Client" installieren.'; return }
+        if(-not $txtSshHost.Text.Trim() -or -not $txtSshPort.Text.Trim() -or -not $txtSshUser.Text.Trim()){ MsgErr 'Bitte SSH User, Host und Port ausfuellen.'; return }
+        if(-not $txtGtTok.Text.Trim() -and $txtGtPass.Text){ [void](Do-GiteaLogin) }
+    } else {
+        if(-not $txtGtTok.Text.Trim()){
+            if(-not (Do-GiteaLogin)){ MsgErr 'Ohne Gitea-Token oder Login geht es nicht weiter.'; return }
+        }
     }
     if(-not (Get-Command git -ErrorAction SilentlyContinue)){ MsgErr 'git wurde nicht gefunden. Bitte Git for Windows installieren.'; return }
 
@@ -259,12 +280,20 @@ $btnStart.Add_Click({
     try {
         SetStatus 'Sync laeuft ...'
         Log ('=== Start: ' + $src + ' -> ' + $dst + ' (' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ') ===')
-        Ensure-DstRepo $dst
+        if($txtGtTok.Text.Trim()){ Ensure-DstRepo $dst }
+        else { Log '[i] Kein Gitea-Token vorhanden - Repo-Pruefung/Anlegen uebersprungen (Ziel-Repo muss existieren).' }
 
         [void](New-Item -ItemType Directory -Path $work)
-        $uri = [Uri](GiteaBase)
-        $gtUserEnc = [Uri]::EscapeDataString($txtGtUser.Text.Trim())
-        $pushUrl = '{0}://{1}:{2}@{3}{4}/{5}.git' -f $uri.Scheme,$gtUserEnc,$txtGtTok.Text.Trim(),$uri.Authority,$uri.AbsolutePath.TrimEnd('/'),$dst
+        if($rbSsh.Checked){
+            $env:GIT_SSH_COMMAND = 'ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new'
+            $pushUrl = 'ssh://{0}@{1}:{2}/{3}.git' -f $txtSshUser.Text.Trim(),$txtSshHost.Text.Trim(),$txtSshPort.Text.Trim(),$dst
+            Log ('[i] Push-Methode: SSH (' + $pushUrl + ')')
+        } else {
+            $uri = [Uri](GiteaBase)
+            $gtUserEnc = [Uri]::EscapeDataString($txtGtUser.Text.Trim())
+            $pushUrl = '{0}://{1}:{2}@{3}{4}/{5}.git' -f $uri.Scheme,$gtUserEnc,$txtGtTok.Text.Trim(),$uri.Authority,$uri.AbsolutePath.TrimEnd('/'),$dst
+            Log '[i] Push-Methode: HTTPS mit Token.'
+        }
 
         if($rbSnap.Checked){
             $zip = Join-Path $work 'src.zip'

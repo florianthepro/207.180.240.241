@@ -43,7 +43,7 @@ call :SEC "BCD - hypervisorlaunchtype"
 bcdedit /enum {current} >>"%OUT%" 2>&1
 
 call :SEC "WINDOWS-FEATURES (WSL / VM-Platform / Hyper-V)"
-powershell -NoProfile -Command "Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux,VirtualMachinePlatform,Microsoft-Hyper-V-All,HypervisorPlatform,Containers | Select-Object FeatureName,State | Format-Table -AutoSize | Out-String -Width 200" >>"%OUT%" 2>&1
+powershell -NoProfile -Command "$want='Microsoft-Windows-Subsystem-Linux','VirtualMachinePlatform','Microsoft-Hyper-V-All','HypervisorPlatform','Containers'; foreach($f in $want){ try{ $s=(Get-WindowsOptionalFeature -Online -FeatureName $f -ErrorAction Stop).State }catch{ $s='n/a' }; ('{0,-40} {1}' -f $f,$s) }" >>"%OUT%" 2>&1
 
 call :SEC "WSL --version"
 wsl --version >>"%OUT%" 2>&1

@@ -11,16 +11,13 @@ Registry und CI (**Gitea Actions**, GitHub-Actions-kompatibel).
 
 ## Installation
 
-Als **Administrator** ausführen — am einfachsten die Batch (fragt UAC ab):
+**Nur eine Datei nötig:** `gitea-setup.bat`. Der PowerShell-Teil ist darin
+eingebettet (die Bat entpackt ihn beim Start selbst in eine Temp-Datei und
+führt ihn aus). Einfach doppelklicken oder als Administrator starten — sie
+fragt bei Bedarf UAC ab:
 
 ```bat
 .\gitea-setup.bat
-```
-
-oder direkt PowerShell:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\gitea-setup.ps1
 ```
 
 Das Skript:
@@ -37,13 +34,16 @@ Das Skript:
 
 ### Optionen
 
-| Parameter | Zweck | Default |
+Oben in der `gitea-setup.bat` im Block `Konfiguration` anpassen (`set "..."`):
+
+| Variable | Zweck | Default |
 |---|---|---|
-| `-Domain git.example.com` | Betrieb hinter Apache/HTTPS (setzt ROOT_URL + Secure-Cookies) | leer = nur lokal |
-| `-Version 1.24.3` | feste Gitea-Version statt „neueste" | leer = auto |
-| `-Port 9200` | HTTP-Port (nur Loopback) | 9200 |
-| `-Dir C:\gitea` | Datenverzeichnis | `C:\gitea` |
-| `-Force` | `gitea.exe` neu laden (Upgrade) + Migration | — |
+| `GITEA_DOMAIN` | Betrieb hinter Apache/HTTPS (setzt ROOT_URL + Secure-Cookies) | leer = nur lokal |
+| `GITEA_VERSION` | feste Gitea-Version statt „neueste" | leer = auto |
+| `GITEA_PORT` | HTTP-Port (nur Loopback) | `9200` |
+| `GITEA_DIR` | Datenverzeichnis (ohne Leerzeichen) | `C:\gitea` |
+| `GITEA_ADMIN` / `GITEA_EMAIL` | Admin-Benutzer / -E-Mail | `gitadmin` / `admin@localhost` |
+| `GITEA_FORCE` | `1` = `gitea.exe` neu laden (Upgrade) + Migration | `0` |
 
 ## Warum das „stabil & nicht unsicher" ist
 
@@ -85,12 +85,9 @@ Logs: `C:\gitea\log\` und Setup-Protokoll `C:\gitea\setup-log.txt`.
 
 ## Upgrade
 
-```bat
-.\gitea-setup.bat -Force
-```
-
-Lädt die neueste `gitea.exe`, führt die Migration aus und startet den Dienst neu.
-`app.ini` und Daten bleiben erhalten.
+In der `gitea-setup.bat` oben `set "GITEA_FORCE=1"` setzen und die Bat erneut
+starten. Lädt die neueste `gitea.exe`, führt die Migration aus und startet den
+Dienst neu. `app.ini` und Daten bleiben erhalten.
 
 ## Deinstallation
 

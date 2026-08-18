@@ -11,39 +11,49 @@ Registry und CI (**Gitea Actions**, GitHub-Actions-kompatibel).
 
 ## Installation
 
-**Nur eine Datei nötig:** `gitea-setup.bat`. Der PowerShell-Teil ist darin
+**Nur eine Datei nötig:** `gitea-setup-v2.bat`. Der PowerShell-Teil ist darin
 eingebettet (die Bat entpackt ihn beim Start selbst in eine Temp-Datei und
 führt ihn aus). Einfach doppelklicken oder als Administrator starten — sie
 fragt bei Bedarf UAC ab:
 
 ```bat
-.\gitea-setup.bat
+.\gitea-setup-v2.bat
 ```
 
-Das Skript:
+Ablauf in 4 Phasen:
 
-1. installiert bei Bedarf **Git for Windows** (via winget),
-2. lädt die **neueste stabile Gitea-Version** und prüft die **SHA256-Summe**,
-3. schreibt eine **gehärtete** `C:\gitea\custom\conf\app.ini`,
-4. härtet die **Datei-ACLs** (nur SYSTEM / Administratoren / Dienstkonto),
-5. legt einen **Admin mit Zufallspasswort** an (wird einmalig angezeigt),
-6. registriert den Dienst **Gitea** (Autostart + Auto-Restart) unter dem
-   niedrig-privilegierten Konto **LocalService**,
-7. blockt eingehend TCP 9200 in der Firewall (Defense-in-Depth),
-8. startet den Dienst und macht einen Health-Check.
+1. **Aufräumen:** entfernt Dienst/Prozesse/Firewall-Regel einer alten
+   Installation, repariert ggf. defekte NTFS-Rechte (v1-Schaden) und löscht
+   `C:\gitea` (fragt nach, wenn eine Datenbank mit Daten gefunden wird);
+   prüft, dass Port 9200 frei ist.
+2. **Installation:** installiert bei Bedarf **Git for Windows** (winget), lädt
+   die **neueste stabile Gitea-Version**, prüft die **SHA256-Summe**, entsperrt
+   die Datei (Mark-of-the-Web), macht einen **Startbarkeits-Test**, schreibt
+   eine **gehärtete** `app.ini`, initialisiert die DB (`migrate`) und legt
+   einen **Admin mit Zufallspasswort** an (wird einmalig angezeigt).
+3. **Dienst:** registriert **Gitea** (Autostart + Auto-Restart) unter
+   **LocalService**, blockt eingehend TCP 9200 in der Firewall, startet und
+   prüft per HTTP-Health-Check.
+4. **ACL-Härtung (zum Schluss):** trennt die Vererbung (Rechte werden dabei
+   kopiert, nie „leer"), entfernt breite Gruppen (Users/Authenticated
+   Users/Everyone), gibt LocalService Modify — mit **Selbsttest** und
+   **automatischem Rollback**, falls die Härtung den Start verhindern würde
+   (genau der v1-Fehler „Access is denied" bei `migrate`).
 
 ### Optionen
 
-Oben in der `gitea-setup.bat` im Block `Konfiguration` anpassen (`set "..."`):
+Oben in der `gitea-setup-v2.bat` im Block `Konfiguration` anpassen (`set "..."`):
 
 | Variable | Zweck | Default |
 |---|---|---|
+| `GITEA_WIPE` | `1` = alte Installation komplett entfernen (Clean Install, fragt bei vorhandener DB nach); `0` = Daten behalten (Upgrade) | `1` |
 | `GITEA_DOMAIN` | Betrieb hinter Apache/HTTPS (setzt ROOT_URL + Secure-Cookies) | leer = nur lokal |
 | `GITEA_VERSION` | feste Gitea-Version statt „neueste" | leer = auto |
 | `GITEA_PORT` | HTTP-Port (nur Loopback) | `9200` |
 | `GITEA_DIR` | Datenverzeichnis (ohne Leerzeichen) | `C:\gitea` |
 | `GITEA_ADMIN` / `GITEA_EMAIL` | Admin-Benutzer / -E-Mail | `gitadmin` / `admin@localhost` |
-| `GITEA_FORCE` | `1` = `gitea.exe` neu laden (Upgrade) + Migration | `0` |
+
+Setup-Protokoll: `gitea-setup-v2.log` neben der Bat.
 
 ## Warum das „stabil & nicht unsicher" ist
 
@@ -83,11 +93,11 @@ Stop-Service Gitea
 
 Logs: `C:\gitea\log\` und Setup-Protokoll `C:\gitea\setup-log.txt`.
 
-## Upgrade
+## Upgrade (Daten behalten)
 
-In der `gitea-setup.bat` oben `set "GITEA_FORCE=1"` setzen und die Bat erneut
-starten. Lädt die neueste `gitea.exe`, führt die Migration aus und startet den
-Dienst neu. `app.ini` und Daten bleiben erhalten.
+In der `gitea-setup-v2.bat` oben `set "GITEA_WIPE=0"` setzen, auf dem Server
+`C:\gitea\gitea.exe` löschen (damit die neue Version geladen wird) und die Bat
+erneut starten. `app.ini`, Datenbank und Repos bleiben erhalten.
 
 ## Deinstallation
 
